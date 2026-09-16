@@ -1,0 +1,556 @@
+1. System Overview & Tech Stack
+Minbar Backend is a NestJS 10 RESTful and real-time backend engine for an Educational / Learning Management System (LMS). It handles course authoring, media delivery, interactive assessment engines, student progress tracking, real-time discussions, and administrative oversight.
+Tech Stack Summary
+* Framework: NestJS 10 (TypeScript 5.1, Node.js 18)
+* Database: MongoDB via Mongoose 8
+* Authentication: JWT Strategy + Passport (passport-jwt, passport-local), Argon2 password hashing
+* Real-Time Communication: Socket.IO (@nestjs/websockets, @nestjs/platform-socket.io)
+* API Documentation: Swagger/OpenAPI available at /api
+* Media & File Storage: AWS S3 (aws-sdk)
+* Email Delivery: SendGrid (@sendgrid/mail) & Nodemailer (@nestjs-modules/mailer)
+* Background Tasks: @nestjs/schedule (Cron jobs & timed tasks)
+* Security & Middleware: Helmet, CORS, Throttler (Rate Limiting), Mongo Sanitize
+
+2. Directory Structure & Architecture
+The application follows a standard modular NestJS directory layout:
+
+
+src/
+├── modules/                  # 28 Domain Feature Modules
+├── common/                   # Global Decorators, Guards, Interceptors, Pipes, WS filters
+│   ├── decorators/           # Custom decorators (e.g. @User())
+│   ├── enum/                 # System enums (Roles, Statuses)
+│   ├── interceptors/         # Global Logging & Response Interceptors
+│   ├── middlewares/          # Security & Sanitization Middlewares
+│   └── websockets/           # WebSocket Exception Filters
+├── database/                 # Database Connections & Seeding
+│   ├── mongodb/              # Mongoose Connection Setup
+│   └── seed/                 # Database Seeding Service & CLI
+├── utils/                    # Shared Helpers (Email, Custom Error Builders, Normalizers)
+├── app.module.ts             # Central Application Module
+└── main.ts                   # Application Entrypoint & Middleware Configuration
+
+3. Detailed Module Breakdown
+The 28 feature modules in src/modules are grouped below by domain area:
+A. Identity, Authentication & Security
+Module	Location	Responsibilities & Description
+AuthModule	src/modules/auth	Manages user registration, login, JWT token generation, refresh tokens, and password reset requests. Uses Argon2 for password hashing and Passport strategies for JWT guards.
+UserModule	src/modules/user	Handles user profile CRUD operations, avatar management, user status toggles (active/blocked), and user search capabilities. Includes user.gateway.ts for online status tracking.
+RoleModule	src/modules/role	Implements Role-Based Access Control (RBAC). Defines roles (e.g., Student, Instructor, Admin, SuperAdmin) and associated permissions.
+GroupModule	src/modules/group	Manages student cohorts/batches. Allows grouping users together for batch course enrollment, targeted assessments, and group progress monitoring.
+B. Core Course Architecture & Content Delivery
+Module	Location	Responsibilities & Description
+CategoryModule	src/modules/category	Manages course taxonomies, parent-child categories, and subject classifications to enable easy course discovery.
+CourseModule	src/modules/course	Primary course engine handling creation, title, slugification, descriptions, thumbnail metadata, pricing, publication workflow (draft/published), and assigned instructors.
+CoursemoduleModule	src/modules/coursemodule	Organizes courses into high-level structural units/modules (e.g. "Module 1: Introduction to Web Dev").
+ChapterModule	src/modules/chapter	Represents individual chapters/lessons nested under a course module. Stores sequence order, estimated completion time, and chapter metadata.
+ChaptercontentModule	src/modules/chaptercontent	Stores text-based lesson contents, downloadable PDF attachments, external resource links, and supplementary reading material.
+ChapterVideoModule	src/modules/chapter-video	Handles video lesson metadata, stream URLs, AWS S3 storage keys, duration tracking, and video resolution formats.
+C. Assessment & Evaluation Engine
+Module	Location	Responsibilities & Description
+QuestionBankModule	src/modules/question-bank	Central repository of reusable questions categorized by difficulty, subject, and topic for quick assessment creation.
+AssessmentModule	src/modules/assessment	Manages test/quiz templates, time limits, total marks, passing thresholds, negative marking rules, and attempt limits.
+AssessmentQuestionsModule	src/modules/assessment-questions	Links specific questions (MCQ, True/False, Subjective) to an assessment, handling question ordering and weightages.
+AnswerOptionsModule	src/modules/answer-options	Manages individual answer options for multiple-choice questions, specifying correct keys and feedback messages.
+CourseAssessmentModule	src/modules/course-assessment	Binds assessments to specific courses, modules, or chapters (e.g. Chapter End Quiz, Course Final Exam).
+StudentAssessmentModule	src/modules/student-assessment	Tracks live student test sessions, start/end timestamps, countdown timers, tab-switch alerts, and attempt state machine.
+StudentSubmissionModule	src/modules/student-submission	Stores submitted student answers, handles automatic grading for MCQs, and provides instructor evaluation interfaces for subjective answers.
+D. Real-Time Interaction & Student Engagement
+Module	Location	Responsibilities & Description
+CourseDiscussionModule	src/modules/course-discussion	Course-wide QA & discussion forum. Contains course-discussion.gateway.ts for live real-time comment streams via WebSockets.
+ChapterVideoCommentsModule	src/modules/chapter-video-comments	In-video discussion threads. Includes chapter-video-comment.gateway.ts allowing real-time chat anchored to specific video playback timestamps.
+ChapterVideoNotesModule	src/modules/chapter-video-notes	Personal student notebook feature. Allows students to save timestamped notes while watching video lectures.
+NotificationModule	src/modules/notification	Notification dispatch engine. Uses notification.gateway.ts for real-time WebSocket push alerts and database notification persistence.
+E. Operations, Analytics & Platform Infrastructure
+Module	Location	Responsibilities & Description
+AdmindashboardModule	src/modules/admindashboard	Provides aggregated metrics and analytics for admins (active users, total enrollments, revenue, course completion stats).
+SubscribeModule	src/modules/subscribe	Manages course subscriptions, enrollment records, student access grants, and expiration dates.
+FileUploadModule	src/modules/file-upload	Integrates with AWS S3 for uploading avatars, course thumbnails, video files, and student submission attachments.
+EmailModule	src/modules/email	Wrapper around SendGrid and Nodemailer for sending transactional emails (welcome emails, password resets, enrollment notices).
+SchedulerModule	src/modules/scheduler	Cron job runner using @nestjs/schedule for background maintenance, automatic assessment timeouts, and cleanup tasks.
+LogModule	src/modules/log	Intercepts HTTP requests via LoggerInterceptor to log API request/response metadata, execution time, and error trace logs into MongoDB.
+MiscModule	src/modules/misc	Utility endpoints for platform configurations, system health checks, and global metadata lookup.
+4. Key Request Lifecycle & Design Conventions
+1. Global Routing Prefix: All REST endpoints are prefixed with /api (configured in main.ts).
+2. Response Standardization: Controllers leverage responseBuilder and customErrorBuilder located in src/utils/ to ensure predictable JSON response payloads across all endpoints.
+3. Authentication Guarding: Protected endpoints use @UseGuards(AuthGuard('jwt')). The authenticated payload is extracted using the custom @User() decorator from src/common/decorators.
+4. Validation Pipeline: DTOs use class-validator and class-transformer annotations. The global ValidationPipe validates incoming payloads before controller execution.
+5. Real-time Gateways: Socket.IO gateways (.gateway.ts) maintain client connections across user, notification, course-discussion, and chapter-video-comments.
+
+
+Knowledge Transfer (KT) Document
+Minbar - Learning Management System (LMS)
+Document Version: 1.0 Project Name: Minbar Prepared By: ____________________ Date: ____________________
+
+1. Project Overview
+Purpose
+Minbar is a Learning Management System (LMS) designed to provide an end-to-end online learning platform for administrators, tutors, and learners. The platform enables course creation, learning management, assessments, user management, and progress tracking.
+Objectives
+* Deliver online learning content efficiently.
+* Enable administrators to manage courses, users, tutors, and platform settings.
+* Allow tutors to evaluate learner submissions.
+* Provide learners with an interactive learning experience through videos, assessments, discussions, and certifications.
+
+2. System Roles
+The application consists of three primary roles:
+2.1 Administrator
+Responsible for managing the entire LMS platform.
+Responsibilities
+* Dashboard Monitoring
+* Category Management
+* Course Management
+* Gradebook Management
+* Question Bank Management
+* Tutor Evaluation
+* User Management
+* Admin Management
+* Role Management
+* Feedback & Reviews Management
+* Notifications
+* System Settings
+
+2.2 Tutor
+Responsible for evaluating learner submissions.
+Responsibilities
+* Evaluate Essay Questions
+* Evaluate Short Answer Questions
+* Review Assignments
+* Review Projects
+* Publish Marks
+Note: Objective question types (MCQ, True/False, Fill in the Blank, etc.) are automatically evaluated by the system.
+
+2.3 Learner
+Responsible for enrolling and completing courses.
+Features
+* Explore Courses
+* Enroll in Courses
+* Complete Learning Modules
+* Participate in Discussions
+* Attempt Assessments
+* Track Progress
+* Download Certificates
+* Submit Feedback & Reviews
+
+3. Technology Stack
+Layer	Technology
+Frontend	React.js
+Backend	Node.js, NestJS
+Database	MongoDB
+Authentication	JWT (JSON Web Token)
+File Storage	AWS S3
+Email Notifications	SendGrid
+Architecture	REST API
+4. High-Level System Architecture
+                +----------------------+
+                |     React Frontend   |
+                +----------+-----------+
+                           |
+                     REST APIs
+                           |
+                +----------+-----------+
+                |    NestJS Backend    |
+                +----------+-----------+
+                           |
+        +------------------+----------------+
+        |                                   |
+   MongoDB Database                  AWS S3 Storage
+        |
+    User Data
+    Course Data
+    Assessments
+    Progress
+
+SendGrid
+    |
+Forgot Password Email
+Notifications
+
+5. User Authentication
+Authentication is implemented using JWT.
+Login Flow
+1. User enters credentials.
+2. Backend validates user.
+3. JWT Token is generated.
+4. Token is stored on client.
+5. Protected APIs require JWT.
+
+6. Administrator Module
+After successful login, the administrator is redirected to the Dashboard.
+Modules
+Dashboard
+Provides an overview of:
+* Total Users
+* Total Tutors
+* Total Courses
+* Active Enrollments
+* Statistics
+
+Category Management
+Functions
+* Create Category
+* Update Category
+* Delete Category
+* View Categories
+
+Course Management
+Functions
+* Create Course
+* Edit Course
+* Publish Course
+* Manage Modules
+* Manage Chapters
+* Upload Course Resources
+
+Gradebook
+Manage learner grades and assessment records.
+
+Question Bank
+Manage reusable assessment questions.
+Supported question types:
+* Multiple Choice Questions (MCQ)
+* Essay
+* Fill in the Blank
+* Short Answer
+* True/False
+* Assignment
+* Project
+
+Tutor Evaluation
+Manage  performance and evaluations.
+
+User Management
+Functions
+* Add Users
+* Edit Users
+* Activate/Deactivate Users
+* View Learners
+
+Admin Management
+Manage administrator accounts.
+
+Role Management
+Configure user roles and permissions.
+
+Feedback & Reviews
+View learner feedback submitted for courses.
+
+Notifications
+Manage system notifications.
+
+Settings
+Configure application settings.
+
+7. Learner Module
+After login, learners are redirected to the Home Page.
+
+Navigation Bar
+Contains
+* Explore (Dropdown)
+* My Learnings
+* Search Bar
+* Profile Dropdown
+Profile Dropdown includes
+* Profile
+* Settings
+* Logout
+
+8. Learner Profile
+The learner profile displays
+* User Information
+* Enrolled Courses
+* Completed Courses
+* Certificates Earned
+* Learning Statistics
+
+9. Course Workflow
+Login
+
+↓
+
+Homepage
+
+↓
+
+Browse Courses
+
+↓
+
+Course Details
+
+↓
+
+Enroll
+
+↓
+
+Module Listing
+
+↓
+
+Select Module
+
+↓
+
+Chapter
+
+↓
+
+Learning Content
+
+↓
+
+Assessment
+
+↓
+
+Course Completion
+
+↓
+
+Certificate
+
+10. Course Structure
+Each course contains multiple Modules.
+Each module contains multiple Chapters.
+Chapter Types
+Content
+Text-based learning material.
+Video
+Video lectures.
+Additional Features
+* Discussion Chat
+* 
+Learners can interact with other learners enrolled in the same course.
+Assessment
+Standard quizzes and tests.
+Advanced Assessment
+Supports multiple question types.
+
+11. Assessment Types
+Supported Question Types
+Question Type	Evaluation
+MCQ	System
+True/False	System
+Fill in the Blank	System
+Essay	Tutor
+Short Answer	Tutor
+Assignment	Tutor
+Project	Tutor
+12. Course Discussions
+Each course has its own discussion area.
+Features
+* Discussion Chat
+* Course Forum
+* Learner Interaction
+
+13. Feedback & Reviews
+Learners can
+* Rate Courses
+* Submit Reviews
+* Provide Feedback
+These are visible to administrators for quality monitoring.
+
+14. Progress Tracking
+Learners can monitor progress through the My Learnings page.
+Progress includes
+* Enrolled Courses
+* Completed Modules
+* Assessment Status
+* Completion Percentage
+* Certificates
+
+15. Certificate Management
+Upon successful completion of a course, learners can view and download their certificates from their profile.
+
+16. Database Overview
+MongoDB stores:
+* Users
+* Roles
+* Categories
+* Courses
+* Modules
+* Chapters
+* Assessments
+* Questions
+* Gradebook
+* Feedback
+* Reviews
+* Notifications
+* Certificates
+* Progress Records
+
+17. File Storage
+AWS S3 is used for storing:
+* Course Images
+* Videos
+* Learning Materials
+* Assignment Files
+* Project Submissions
+* Certificates
+
+18. Email Notifications
+SendGrid is used for:
+* Forgot Password Emails
+* Password Reset Links
+
+19. Security
+Security mechanisms include:
+* JWT Authentication
+* Role-Based Access Control
+* Protected REST APIs
+* Secure Password Storage
+* Token Validation
+
+20. Common User Flow
+Administrator
+Login
+
+↓
+
+Dashboard
+
+↓
+
+Manage Categories
+
+↓
+
+Manage Courses
+
+↓
+
+Manage Question Bank
+
+↓
+
+Manage Users
+
+↓
+
+Manage Tutors
+
+↓
+
+Monitor Feedback
+
+↓
+
+System Settings
+
+Learner
+Login
+
+↓
+
+Homepage
+
+↓
+
+Explore Course
+
+↓
+
+Course Details
+
+↓
+
+Enroll
+
+↓
+
+Modules
+
+↓
+
+Chapters
+
+↓
+
+Videos & Content
+
+↓
+
+Assessments
+
+↓
+
+Tutor Evaluation (if applicable)
+
+↓
+
+Course Completion
+
+↓
+
+Certificate
+
+↓
+
+Course Review
+
+21. Key Features
+* Role-Based Authentication
+* Course Management
+* Category Management
+* Learning Modules
+* Video Learning
+* Discussion Chat
+* Course Forums
+* Advanced Assessments
+* Automatic Evaluation
+* Tutor Evaluation
+* Gradebook
+* Progress Tracking
+* Certificates
+* Feedback & Reviews
+* Notifications
+* Search Functionality
+* JWT Authentication
+* AWS S3 File Storage
+* SendGrid Email Integration
+
+22. Known Functional Flow
+Automatic Evaluation
+System evaluates:
+* MCQ
+* Fill in the Blank
+* True/False
+Manual Evaluation
+Tutor evaluates:
+* Essay
+* Short Answer
+* Assignment
+* Project
+Marks are updated in the learner's gradebook after evaluation.
+
+23. Troubleshooting
+Issue	Possible Cause	Resolution
+Login Failed	Invalid credentials or expired JWT	Verify credentials and generate a new token
+File Upload Failed	AWS S3 configuration	Verify S3 bucket permissions and credentials
+Forgot Password Email Not Received	SendGrid configuration	Verify SendGrid API key and sender configuration
+Assessment Not Submitted	Network issue or validation error	Retry submission and verify request logs
+Progress Not Updated	Assessment incomplete or evaluation pending	Complete remaining activities or wait for tutor evaluation
+24. Future Enhancements
+* Live Classes
+* Video Conferencing Integration
+* Gamification
+* Badges & Achievements
+* Mobile Application
+* AI-based Learning Recommendations
+* Advanced Analytics Dashboard
+
+25. Handover Checklist
+* Source Code Repository Access
+* Database Access
+* Environment Variables
+* AWS S3 Credentials
+* SendGrid Configuration
+* JWT Secret
+* Deployment Documentation
+* Admin Credentials
+* API Documentation
+* Database Backup
+* Knowledge Transfer Sessions Completed
+
+26. Conclusion
+Minbar is a comprehensive Learning Management System that enables administrators to manage educational content, tutors to evaluate learner performance, and learners to access structured learning resources, complete assessments, participate in discussions, track progress, and earn certificates. The application follows a modular architecture with React.js on the frontend, NestJS/Node.js on the backend, MongoDB as the database, AWS S3 for file storage, JWT for secure authentication, and SendGrid for email notifications.

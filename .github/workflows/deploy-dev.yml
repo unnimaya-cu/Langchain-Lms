@@ -1,0 +1,30 @@
+name: Deploy Development
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    if: contains(github.event.head_commit.message, '[Deploy]')
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    environment:
+      name: development
+
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "${{ secrets.MINBAR_DEV_DEPLOY_KEY }}" > ~/.ssh/id_rsa
+
+          chmod 600 ~/.ssh/id_rsa
+
+          ssh-keyscan -H ${{ secrets.EC2_DEV_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Trigger Deployment
+        run: |
+          ssh ec2-user@${{ secrets.EC2_DEV_HOST }}

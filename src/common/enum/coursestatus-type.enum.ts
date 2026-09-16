@@ -1,0 +1,8 @@
+export enum CourseStatusType {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  UNDERREVIEW = 'UNDERREVIEW',
+  DRAFT = 'DRAFT',
+  ARCHIVED = 'ARCHIVED',
+  DELETED = 'DELETED',
+}
