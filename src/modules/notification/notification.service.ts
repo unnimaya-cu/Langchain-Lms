@@ -31,8 +31,8 @@ export class NotificationService {
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
     @InjectModel('CourseDiscussion')
-    private readonly courseDiscussionModel: Model<any>
-  ) { }
+    private readonly courseDiscussionModel: Model<any>,
+  ) {}
 
   async CreateNewNotification(
     type: NotificationType,
@@ -55,12 +55,13 @@ export class NotificationService {
       if (commentId) notificationData.commentId = new Types.ObjectId(commentId);
       // if (assessmentId) notificationData.assessmentId = new Types.ObjectId(assessmentId);
 
-      if ((
-        type === NotificationType.ASSIGN_ASSESSMENT ||
-        type === NotificationType.ASSESSMENT_GRADED ||
-        type === NotificationType.ASSESSMENT_REMINDER ||
-        type === NotificationType.GRADE_REMINDER 
-      ) && assessmentId) {
+      if (
+        (type === NotificationType.ASSIGN_ASSESSMENT ||
+          type === NotificationType.ASSESSMENT_GRADED ||
+          type === NotificationType.ASSESSMENT_REMINDER ||
+          type === NotificationType.GRADE_REMINDER) &&
+        assessmentId
+      ) {
         notificationData.assessmentId = new Types.ObjectId(assessmentId);
       }
 
@@ -199,11 +200,11 @@ export class NotificationService {
         },
         {
           $lookup: {
-            from:'courseassessments',
+            from: 'courseassessments',
             localField: 'notificationDetails.assessmentId',
             foreignField: '_id',
             as: 'assessmentDetails',
-          }
+          },
         },
         {
           $unwind: {
@@ -213,11 +214,11 @@ export class NotificationService {
         },
         {
           $lookup: {
-            from:'coursediscussions',
+            from: 'coursediscussions',
             localField: 'notificationDetails.discussionId',
             foreignField: '_id',
             as: 'discussions',
-          }
+          },
         },
         {
           $unwind: {
@@ -228,9 +229,13 @@ export class NotificationService {
         {
           $addFields: {
             resolvedCourseId: {
-              $ifNull: ['$notificationDetails.courseId', '$assessmentDetails.courseId', '$discussions.courseId'],
-            }
-          }
+              $ifNull: [
+                '$notificationDetails.courseId',
+                '$assessmentDetails.courseId',
+                '$discussions.courseId',
+              ],
+            },
+          },
         },
         {
           $lookup: {
@@ -302,16 +307,16 @@ export class NotificationService {
                 if: {
                   $in: [
                     '$notificationDetails.type',
-                    ['comment_reply', 'course_discussion_reply']
-                  ]
+                    ['comment_reply', 'course_discussion_reply'],
+                  ],
                 },
                 then: { $ifNull: ['$notificationDetails.message', null] },
-                else: { $ifNull: ['$message', null] }
-              }
+                else: { $ifNull: ['$message', null] },
+              },
             },
             createdAt: '$notificationDetails.createdAt',
             replierProfileImg: '$replier.profileImg',
-            replierUserName: '$replier.firstName'
+            replierUserName: '$replier.firstName',
             // notificationCreatedAt: '$notificationDetails.createdAt'
           },
         },
@@ -569,7 +574,6 @@ export class NotificationService {
   //   }
   // }
 
-
   async getAllNotificationsForAdmin(
     page: number,
     limit: number,
@@ -578,16 +582,21 @@ export class NotificationService {
     filter?: string,
   ) {
     try {
-      const tutor = await this.userModel.findById(new Types.ObjectId(userId))
-      .populate('roleId')
-      .select('roleId')
+      const tutor = await this.userModel
+        .findById(new Types.ObjectId(userId))
+        .populate('roleId')
+        .select('roleId');
 
-      let isSuperAdmin = false
+      let isSuperAdmin = false;
 
-      if(tutor && ((tutor.roleId as any).roleName === 'admin' ||(tutor.roleId as any).roleName === 'super admin')) {
-        isSuperAdmin = true
+      if (
+        tutor &&
+        ((tutor.roleId as any).roleName === 'admin' ||
+          (tutor.roleId as any).roleName === 'super admin')
+      ) {
+        isSuperAdmin = true;
       }
-      
+
       const skip = (page - 1) * limit;
 
       if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -641,31 +650,31 @@ export class NotificationService {
         },
         {
           $lookup: {
-            from:'videocomments',
+            from: 'videocomments',
             localField: 'commentId',
             foreignField: '_id',
-            as:'videoComment',  
-          }
+            as: 'videoComment',
+          },
         },
         {
           $unwind: {
             path: '$videoComment',
             preserveNullAndEmptyArrays: true,
-          }
+          },
         },
         {
           $lookup: {
-            from:'videochapters',
+            from: 'videochapters',
             localField: 'videoComment.videoId',
             foreignField: '_id',
-            as:'videoChapter',  
-          }
+            as: 'videoChapter',
+          },
         },
         {
           $unwind: {
             path: '$videoChapter',
             preserveNullAndEmptyArrays: true,
-          }
+          },
         },
         {
           $lookup: {
@@ -693,21 +702,21 @@ export class NotificationService {
           $unwind: {
             path: '$chapter',
             preserveNullAndEmptyArrays: true,
-          }
+          },
         },
         {
           $lookup: {
-            from:'coursemodules',
+            from: 'coursemodules',
             localField: 'chapter.moduleId',
             foreignField: '_id',
-            as:'courseModules',  
-          }
+            as: 'courseModules',
+          },
         },
         {
           $unwind: {
             path: '$courseModules',
             preserveNullAndEmptyArrays: true,
-          }
+          },
         },
         {
           $lookup: {
@@ -726,7 +735,9 @@ export class NotificationService {
                   // discussion reply
                   {
                     // case: { $eq: ['$type', 'new_course'] },
-                    case:{$in: ['$type', ['new_course', 'course_completion']]},
+                    case: {
+                      $in: ['$type', ['new_course', 'course_completion']],
+                    },
                     then: '$courseId',
                   },
                   {
@@ -768,14 +779,14 @@ export class NotificationService {
         },
         { $unwind: { path: '$course', preserveNullAndEmptyArrays: true } },
         ...(isSuperAdmin
-        ? []
-        : [
-            {
-              $match: {
-                'course.createdBy': new Types.ObjectId(userId),
+          ? []
+          : [
+              {
+                $match: {
+                  'course.createdBy': new Types.ObjectId(userId),
+                },
               },
-            },
-          ]),
+            ]),
         // Lookup tutor
         {
           $lookup: {
@@ -892,17 +903,36 @@ export class NotificationService {
         // 🔹 Add full names and assessment title
         {
           $addFields: {
-            isRead: { $ifNull: [{ $arrayElemAt: ['$userReadStatus.isRead', 0] }, false] },
-            isAdminRead: { $ifNull: [{ $arrayElemAt: ['$adminReadStatus.isAdminRead', 0] }, false] },
+            isRead: {
+              $ifNull: [{ $arrayElemAt: ['$userReadStatus.isRead', 0] }, false],
+            },
+            isAdminRead: {
+              $ifNull: [
+                { $arrayElemAt: ['$adminReadStatus.isAdminRead', 0] },
+                false,
+              ],
+            },
             // message: { $ifNull: [{ $arrayElemAt: ['$userReadStatus.message', 0] }, null] },
             message: {
               $ifNull: [
                 { $arrayElemAt: ['$userReadStatus.message', 0] },
-                '$message'
-              ]
+                '$message',
+              ],
             },
-            tutorName: { $concat: [{ $ifNull: ['$tutorUser.firstName', 'Tutor'] }, ' ', { $ifNull: ['$tutorUser.lastName', ''] }] },
-            studentName: { $concat: [{ $ifNull: ['$studentUser.firstName', 'Student'] }, ' ', { $ifNull: ['$studentUser.lastName', ''] }] },
+            tutorName: {
+              $concat: [
+                { $ifNull: ['$tutorUser.firstName', 'Tutor'] },
+                ' ',
+                { $ifNull: ['$tutorUser.lastName', ''] },
+              ],
+            },
+            studentName: {
+              $concat: [
+                { $ifNull: ['$studentUser.firstName', 'Student'] },
+                ' ',
+                { $ifNull: ['$studentUser.lastName', ''] },
+              ],
+            },
             assessmentTitle: { $ifNull: ['$assessment.title', 'Assessment'] },
             learnerName: {
               $ifNull: [
@@ -914,7 +944,9 @@ export class NotificationService {
         },
 
         // 🔹 Filter by type
-        ...(filter === 'COURSE UPDATES' ? [{ $match: { type: 'new_course' } }] : []),
+        ...(filter === 'COURSE UPDATES'
+          ? [{ $match: { type: 'new_course' } }]
+          : []),
         ...(filter === 'UNREAD' ? [{ $match: { isAdminRead: false } }] : []),
 
         // 🔹 Build formatted message for each notification type
@@ -925,31 +957,77 @@ export class NotificationService {
                 branches: [
                   {
                     case: { $eq: ['$type', 'assign_assessment'] },
-                    then: { $concat: ['$tutorName', ' assigned ', '$assessmentTitle', ' to ', '$studentName'] },
+                    then: {
+                      $concat: [
+                        '$tutorName',
+                        ' assigned ',
+                        '$assessmentTitle',
+                        ' to ',
+                        '$studentName',
+                      ],
+                    },
                   },
                   {
                     case: { $eq: ['$type', 'assessment_graded'] },
-                    then: { $concat: ['$tutorName', ' graded ', '$studentName', ' for ', '$assessmentTitle'] },
+                    then: {
+                      $concat: [
+                        '$tutorName',
+                        ' graded ',
+                        '$studentName',
+                        ' for ',
+                        '$assessmentTitle',
+                      ],
+                    },
                   },
                   {
                     case: { $eq: ['$type', 'assessment_reminder'] },
-                    then: { $concat: ['Reminder: ', '$tutorName', ' reminded ', '$studentName', ' about ', '$assessmentTitle'] },
+                    then: {
+                      $concat: [
+                        'Reminder: ',
+                        '$tutorName',
+                        ' reminded ',
+                        '$studentName',
+                        ' about ',
+                        '$assessmentTitle',
+                      ],
+                    },
                   },
                   {
                     case: { $eq: ['$type', 'new_course'] },
-                    then: { $concat: ['New course "', '$course.title', '" created.'] },
+                    then: {
+                      $concat: ['New course "', '$course.title', '" created.'],
+                    },
                   },
                   {
                     case: { $eq: ['$type', 'comment_reply'] },
-                    then: { $concat: [{ $ifNull: ['$replierUser.firstName', 'Unknown User'] }, ' replied to a comment: ', '$message'] },
+                    then: {
+                      $concat: [
+                        { $ifNull: ['$replierUser.firstName', 'Unknown User'] },
+                        ' replied to a comment: ',
+                        '$message',
+                      ],
+                    },
                   },
                   {
                     case: { $eq: ['$type', 'course_discussion_reply'] },
-                    then: { $concat: [{ $ifNull: ['$replierUser.firstName', 'Unknown User'] }, ' replied to a discussion thread: ', '$message'] },
+                    then: {
+                      $concat: [
+                        { $ifNull: ['$replierUser.firstName', 'Unknown User'] },
+                        ' replied to a discussion thread: ',
+                        '$message',
+                      ],
+                    },
                   },
                   {
                     case: { $eq: ['$type', 'grade_reminder'] },
-                    then: { $concat: ['Reminder: ', 'Assessment ', '$assessmentTitle', ' needs to be graded.'] },
+                    then: {
+                      $concat: [
+                        'Reminder: ',
+                        'Assessment ',
+                        '$assessmentTitle',
+                        ' needs to be graded.',
+                      ],
+                    },
                   },
                   {
                     case: {
@@ -973,15 +1051,15 @@ export class NotificationService {
         // 🔹 Search
         ...(search?.trim()
           ? [
-            {
-              $match: {
-               formattedMessage: {
-                  $regex: search,
-                  $options: 'i',
+              {
+                $match: {
+                  formattedMessage: {
+                    $regex: search,
+                    $options: 'i',
+                  },
                 },
               },
-            },
-          ]
+            ]
           : []),
 
         { $sort: { createdAt: -1 } },
@@ -993,13 +1071,11 @@ export class NotificationService {
 
       // Count total notifications
       const countPipeline = pipeline.filter(
-        (stage) => 
-          !('$skip' in stage) && 
-          !('$limit' in stage) && 
-          !('$sort' in stage) 
-          // && !('$addFields' in stage)
+        (stage) =>
+          !('$skip' in stage) && !('$limit' in stage) && !('$sort' in stage),
+        // && !('$addFields' in stage)
       );
-      
+
       countPipeline.push({ $count: 'total' });
       const totalResult = await this.notificationModel.aggregate(countPipeline);
       const totalCount = totalResult[0]?.total || 0;
@@ -1020,26 +1096,25 @@ export class NotificationService {
 
   async markOneUserNotificationAsRead(userId: string, notificationId: string) {
     try {
-      const user = await this.userModel.findById(userId).populate('roleId')
+      const user = await this.userModel.findById(userId).populate('roleId');
 
       const role = (user?.roleId as any)?.roleName;
 
       const isAdmin = ['admin', 'tutor'].includes(role);
 
-      const updatedNotification = await this.userNotificationModel.findOneAndUpdate(
-        isAdmin
-          ? { notificationId: new Types.ObjectId(notificationId) }
-          : {
-              notificationId: new Types.ObjectId(notificationId),
-              'users.userId': new Types.ObjectId(userId),
-            },
-        {
-          $set: isAdmin
-            ? { isAdminRead: true }
-            : { 'users.$.isRead': true },
-        },
-        { new: true },
-      );
+      const updatedNotification =
+        await this.userNotificationModel.findOneAndUpdate(
+          isAdmin
+            ? { notificationId: new Types.ObjectId(notificationId) }
+            : {
+                notificationId: new Types.ObjectId(notificationId),
+                'users.userId': new Types.ObjectId(userId),
+              },
+          {
+            $set: isAdmin ? { isAdminRead: true } : { 'users.$.isRead': true },
+          },
+          { new: true },
+        );
 
       if (!updatedNotification) {
         return { data: null, err: 'Notification not found or already read' };
@@ -1051,7 +1126,6 @@ export class NotificationService {
       return { data: null, err: 'Internal Server Error' };
     }
   }
-
 
   async markAllUserNotificationsAsRead(userId: string) {
     try {
@@ -1217,7 +1291,14 @@ export class NotificationService {
         .find({ 'users.userId': userId })
         .populate({
           path: 'notificationId',
-          match: { type: { $in: [NotificationType.COMMENT_REPLY, NotificationType.COURSE_DISCUSSION_REPLY] } },
+          match: {
+            type: {
+              $in: [
+                NotificationType.COMMENT_REPLY,
+                NotificationType.COURSE_DISCUSSION_REPLY,
+              ],
+            },
+          },
           populate: {
             path: 'replierUserId',
             select: 'firstName profileImg',
@@ -1257,7 +1338,10 @@ export class NotificationService {
     }
   }
 
-  async notifyDiscussionReply(replyDiscussionId: Types.ObjectId, replierId: string) {
+  async notifyDiscussionReply(
+    replyDiscussionId: Types.ObjectId,
+    replierId: string,
+  ) {
     try {
       const reply = await this.courseDiscussionModel
         .findById(replyDiscussionId)
@@ -1302,48 +1386,115 @@ export class NotificationService {
       return { data: null, err: 'Internal Server Error' };
     }
   }
-  
 
-  async assignNotificationToUsers(notificationId: string, userIds: string[], message: string, createNew: boolean) {
+  async assignNotificationToUsers(
+    notificationId: string,
+    userIds: string[],
+    message: string,
+    createNew: boolean,
+  ) {
     try {
       if (!Types.ObjectId.isValid(notificationId)) {
-        return { data: null, err: 'Invalid notification Id.' }
+        return { data: null, err: 'Invalid notification Id.' };
       }
 
       const users = userIds.map((id) => ({
         userId: new Types.ObjectId(id),
-        isRead: false
-      }))
+        isRead: false,
+      }));
 
       let notification = null;
 
-      if(createNew === true) {
+      if (createNew === true) {
         notification = await this.userNotificationModel.create({
           notificationId: new Types.ObjectId(notificationId),
           users,
           message,
         });
-      }else {
+      } else {
         notification = await this.userNotificationModel.findOneAndUpdate(
           { notificationId: new Types.ObjectId(notificationId) },
           {
             $addToSet: {
-              users: { $each: users }
+              users: { $each: users },
             },
             message: message,
           },
           {
             new: true,
-            upsert: true
-          }
-        )
+            upsert: true,
+          },
+        );
       }
 
       // console.log('assigned notifications.')
 
       return { data: notification, err: null };
     } catch (error) {
-      return { data: null, err: error }
+      return { data: null, err: error };
     }
+  }
+
+  async hasInactiveCourseReminder(
+    studentId: string,
+    courseId: string,
+  ): Promise<boolean> {
+    const key = `course_inactive_${new Types.ObjectId(studentId).toString()}_${new Types.ObjectId(courseId).toString()}`;
+    const exists = await this.notificationModel.exists({
+      deduplicationKey: key,
+    });
+    return !!exists;
+  }
+
+  async createCourseReminder(
+    studentId: string,
+    courseId: string,
+    courseTitle: string,
+    customDeduplicationKey?: string,
+  ) {
+    const studentObjectId = new Types.ObjectId(studentId);
+    const courseObjectId = new Types.ObjectId(courseId);
+    const deduplicationKey =
+      customDeduplicationKey ||
+      `course_inactive_${studentObjectId.toString()}_${courseObjectId.toString()}`;
+
+    // Check whether a reminder has already been created for this student's inactive course
+    const existingReminder = await this.notificationModel.findOne({
+      deduplicationKey,
+    });
+
+    if (existingReminder) {
+      return existingReminder;
+    }
+
+    try {
+      return await this.notificationModel.create({
+        userId: studentObjectId,
+        courseId: courseObjectId,
+        title: 'Continue your learning!',
+        message:
+          `You haven't continued ${courseTitle} for 4 days. ` +
+          'Pick up where you left off!',
+        type: NotificationType.COURSE_INACTIVE,
+        isRead: false,
+        deduplicationKey,
+      });
+    } catch (error: any) {
+      // Handle race condition for duplicate key error (code 11000)
+      if (error?.code === 11000) {
+        return await this.notificationModel.findOne({ deduplicationKey });
+      }
+      throw error;
+    }
+  }
+
+  async getMyNotifications(studentId: string) {
+    return this.notificationModel
+      .find({
+        userId: new Types.ObjectId(studentId),
+      })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .exec();
   }
 }

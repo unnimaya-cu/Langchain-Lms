@@ -68,6 +68,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
 import { RedisModule } from './redis/redis.module';
+import { CourseReminderService } from './modules/reminders/course-reminder/course-reminder.service';
+import { CourseReminderModule } from './modules/reminders/course-reminder/course-reminder.module';
 @Module({
   imports: [
     ThrottlerModule.forRoot([
@@ -113,6 +115,7 @@ import { RedisModule } from './redis/redis.module';
     StudentSubmissionModule,
     ChatbotModule,
     RedisModule,
+    CourseReminderModule,
   ],
   controllers: [
     AppController,
@@ -148,6 +151,7 @@ import { RedisModule } from './redis/redis.module';
     SubscribeService,
     CourseAssessmentService,
     QuestionBankService,
+    CourseReminderService,
     // ChapterVideoDiscussionGateway
   ],
 })

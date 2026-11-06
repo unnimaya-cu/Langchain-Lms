@@ -21,6 +21,8 @@
     "seed": "ts-node seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.1149.0",
+    "@aws-sdk/client-sqs": "^3.1161.0",
     "@google/genai": "^2.21.0",
     "@langchain/core": "^1.2.10",
     "@langchain/google-genai": "^2.3.1",

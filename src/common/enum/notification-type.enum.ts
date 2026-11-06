@@ -8,4 +8,5 @@ export enum NotificationType {
   GRADE_REMINDER = 'grade_reminder',
   COURSE_DISCUSSION_REPLY = 'course_discussion_reply',
   COURSE_COMPLETION = 'course_completion',
+  COURSE_INACTIVE = 'COURSE_INACTIVE',
 }

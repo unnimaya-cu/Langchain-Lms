@@ -14,6 +14,10 @@ export class UserCoursesDto {
 
   updatedAt?: Date;
 
+  lastActivityAt?: Date;
+
+  lastReminderSentAt?: Date | null;
+
   // createdBy?: string;
 
   // updatedBy?: string;

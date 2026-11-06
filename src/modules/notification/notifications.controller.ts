@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  Post,
   Put,
   Query,
   UseGuards,
@@ -152,5 +154,60 @@ export class NotificationController {
       errorResponseBuilder(err);
     }
     return responseBuilder(true, data);
+  }
+
+  @Post('test-course-reminder')
+  @HttpCode(HttpStatus.OK)
+  async testNotification(
+    @Body()
+    body: {
+      studentId: string;
+      courseId: string;
+      courseTitle: string;
+      customDeduplicationKey?: string;
+    },
+  ) {
+    const alreadyExists = await this.notificationService.hasInactiveCourseReminder(
+      body.studentId,
+      body.courseId,
+    );
+
+    const notification = await this.notificationService.createCourseReminder(
+      body.studentId,
+      body.courseId,
+      body.courseTitle,
+      body.customDeduplicationKey,
+    );
+
+    return responseBuilder(true, {
+      isDuplicate: alreadyExists,
+      message: alreadyExists
+        ? 'Reminder has already been created previously for this student and inactive course. Duplicate prevented!'
+        : 'New inactive course reminder notification successfully created.',
+      notification,
+    });
+  }
+
+  @Get('test-course-reminder/check')
+  @HttpCode(HttpStatus.OK)
+  async checkReminderExists(
+    @Query('studentId') studentId: string,
+    @Query('courseId') courseId: string,
+    // @getUser() user,
+  ) {
+    if (!studentId || !courseId) {
+      return errorResponseBuilder('studentId and courseId query parameters are required.');
+    }
+
+    const exists = await this.notificationService.hasInactiveCourseReminder(
+      studentId,
+      courseId,
+    );
+
+    return responseBuilder(true, {
+      studentId,
+      courseId,
+      hasReminder: exists,
+    });
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, Search } from '@nestjs/common';
+import { Injectable, NotFoundException, Search } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { UserCourses } from './schema/usercourses.schema';
 import mongoose, { Model } from 'mongoose';
@@ -37,7 +37,11 @@ export class UsercoursesService {
   async addMyLearningCourse(dto: UserCoursesDto) {
     console.log('dto ', dto);
     try {
-      const purchasedCourse = await new this.userCourseModel(dto).save();
+      const purchasedCourse = await new this.userCourseModel({
+        ...dto,
+        lastActivityAt: dto.lastActivityAt || new Date(),
+        lastReminderSentAt: dto.lastReminderSentAt ?? null,
+      }).save();
 
       let chapters = await this.chapterService.getAllChapterIdByCourse(
         purchasedCourse.courseId,
@@ -212,6 +216,48 @@ export class UsercoursesService {
     }
   }
 
+  async updateLastActivity(
+    studentId: string,
+    courseId: string,
+  ) {
+    const studentObjectId = new Types.ObjectId(studentId);
+    const courseObjectId = new Types.ObjectId(courseId);
+
+    const enrollment = await this.userCourseModel.findOneAndUpdate(
+      {
+        $and: [
+          {
+            $or: [
+              { userId: studentObjectId },
+              { studentId: studentObjectId },
+            ],
+          },
+          { courseId: courseObjectId },
+          {
+            $or: [
+              { courseStatus: 'INPROGRESS' },
+              { status: 'INPROGRESS' },
+            ],
+          },
+        ],
+      },
+      {
+        $set: {
+          lastActivityAt: new Date(),
+          lastReminderSentAt: null,
+        },
+      },
+      { new: true },
+    );
+
+    if (!enrollment) {
+      throw new NotFoundException('Active enrollment not found');
+    }
+
+    return enrollment;
+  }
+
+
   async enrolledCoursesForAdminPanel(userId: string) {
     try {
       const data = await this.userCourseModel.aggregate([
@@ -318,6 +364,7 @@ export class UsercoursesService {
         if (!chapter.isCompleted) {
           chapter.isCompleted = true;
         }
+        await this.updateLastActivity(userId, courseId);
       } 
       else if (chapter.status === UserChapterStatusType.COMPLETED ){
         chapter.status = UserChapterStatusType.INPROGRESS

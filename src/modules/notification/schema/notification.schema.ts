@@ -6,14 +6,36 @@ export type NotificationDocument = Notification & Document;
 
 @Schema({ timestamps: true })
 export class Notification {
-  @Prop({ required: true, enum: ['course_completion', 'new_course', 'new_comment', 'general', 'comment_reply', 'assign_assessment', 'assessment_graded', 'assessment_reminder', 'grade_reminder', 'course_discussion_reply'] })
+  @Prop({
+    required: true,
+    enum: [
+      'course_completion',
+      'new_course',
+      'new_comment',
+      'general',
+      'comment_reply',
+      'assign_assessment',
+      'assessment_graded',
+      'assessment_reminder',
+      'grade_reminder',
+      'course_discussion_reply',
+      NotificationType.COURSE_INACTIVE,
+      'course_inactive',
+    ],
+  })
   type: string;
+
+  @Prop({ type: String })
+  title?: string;
 
   @Prop({
     type: Types.ObjectId,
     ref: 'courses',
     required: function () {
-      return this.type === NotificationType.NEW_COURSE || this.type === NotificationType.NEW_COMMENT;
+      return (
+        this.type === NotificationType.NEW_COURSE ||
+        this.type === NotificationType.NEW_COMMENT
+      );
     },
   })
   courseId?: Types.ObjectId;
@@ -31,7 +53,10 @@ export class Notification {
     type: Types.ObjectId,
     ref: 'VideoComment',
     required: function (this: Notification) {
-      return this.type === NotificationType.NEW_COMMENT || this.type === NotificationType.COMMENT_REPLY;
+      return (
+        this.type === NotificationType.NEW_COMMENT ||
+        this.type === NotificationType.COMMENT_REPLY
+      );
     },
   })
   commentId?: Types.ObjectId;
@@ -49,7 +74,10 @@ export class Notification {
     type: Types.ObjectId,
     ref: 'User',
     required: function (this: Notification) {
-      return this.type === NotificationType.COMMENT_REPLY || this.type === NotificationType.COURSE_DISCUSSION_REPLY;
+      return (
+        this.type === NotificationType.COMMENT_REPLY ||
+        this.type === NotificationType.COURSE_DISCUSSION_REPLY
+      );
     },
   })
   replierUserId?: Types.ObjectId;
@@ -65,6 +93,20 @@ export class Notification {
 
   @Prop({ type: String })
   message?: string;
+
+  @Prop({ type: Boolean, default: false })
+  isRead?: boolean;
+
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'User',
+    required: false,
+    index: true,
+  })
+  userId?: Types.ObjectId;
+
+  @Prop({ type: String, unique: true, sparse: true })
+  deduplicationKey?: string;
 }
 
 export const notificationSchema = SchemaFactory.createForClass(Notification);
